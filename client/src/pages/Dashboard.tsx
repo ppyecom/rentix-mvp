@@ -44,9 +44,10 @@ export default function Dashboard() {
             <Pin city={user?.city || 'Lima, Perú'} />
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link to="/publicar" className="btn-primary">+ Publicar equipo</Link>
-          <Link to="/mensajes" className="btn-ghost">Mensajes</Link>
+          <Link to="/perfil/editar" className="btn-ghost">Editar perfil</Link>
+          <Link to={`/perfil/${user?.id}`} className="btn-ghost">Ver perfil público</Link>
         </div>
       </div>
 

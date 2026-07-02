@@ -13,6 +13,7 @@ import Messages from './pages/Messages';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
+import EditProfile from './pages/EditProfile';
 
 function Protected({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/registro" element={<Register />} />
         <Route path="/publicar" element={<Protected><Publish /></Protected>} />
         <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
+        <Route path="/perfil/editar" element={<Protected><EditProfile /></Protected>} />
         <Route path="/checkout/:id" element={<Protected><Checkout /></Protected>} />
         <Route path="/mensajes" element={<Protected><Messages /></Protected>} />
         <Route path="*" element={<Navigate to="/" replace />} />
