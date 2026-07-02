@@ -85,6 +85,38 @@ router.post('/', requireAuth, (req, res) => {
   res.status(201).json({ equipment: hydrate(created) });
 });
 
+// POST /api/equipment/:id/reviews  (dejar una reseña)
+router.post('/:id/reviews', requireAuth, (req, res) => {
+  const { rating, comment } = req.body || {};
+  const r = Number(rating);
+  if (!comment || !r || r < 1 || r > 5) {
+    return res.status(400).json({ error: 'Calificación (1-5) y comentario son obligatorios' });
+  }
+  const eq = db.prepare('SELECT id FROM equipment WHERE id = ?').get(req.params.id);
+  if (!eq) return res.status(404).json({ error: 'Equipo no encontrado' });
+
+  const user = db.prepare('SELECT name, avatar FROM users WHERE id = ?').get(req.user.id);
+  db.prepare(
+    `INSERT INTO reviews (equipment_id, author_id, author_name, author_avatar, rating, comment)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(req.params.id, req.user.id, user.name, user.avatar, r, comment);
+
+  // Recalcula el promedio y el conteo del equipo
+  const agg = db
+    .prepare('SELECT AVG(rating) AS avg, COUNT(*) AS n FROM reviews WHERE equipment_id = ?')
+    .get(req.params.id);
+  db.prepare('UPDATE equipment SET rating = ?, reviews_count = ? WHERE id = ?').run(
+    Math.round(agg.avg * 10) / 10,
+    agg.n,
+    req.params.id
+  );
+
+  const reviews = db
+    .prepare('SELECT * FROM reviews WHERE equipment_id = ? ORDER BY created_at DESC')
+    .all(req.params.id);
+  res.status(201).json({ reviews, rating: Math.round(agg.avg * 10) / 10, reviews_count: agg.n });
+});
+
 // GET /api/equipment/mine/list  (equipos del usuario autenticado)
 router.get('/mine/list', requireAuth, (req, res) => {
   const rows = db.prepare(OWNER_JOIN + ' WHERE eq.owner_id = ? ORDER BY eq.created_at DESC').all(req.user.id).map(hydrate);

@@ -17,9 +17,11 @@ export function Navbar() {
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [menu, setMenu] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   function search(e: React.FormEvent) {
     e.preventDefault();
+    setMobileOpen(false);
     navigate(`/marketplace?q=${encodeURIComponent(q)}`);
   }
 
@@ -62,6 +64,15 @@ export function Navbar() {
         </form>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setMobileOpen((o) => !o)}
+            className="grid h-9 w-9 place-items-center rounded-full text-slate-300 ring-1 ring-white/10 transition hover:bg-white/5 lg:hidden"
+            aria-label="Menú"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              {mobileOpen ? <path d="M18 6L6 18M6 6l12 12" /> : <path d="M3 12h18M3 6h18M3 18h18" />}
+            </svg>
+          </button>
           <Link to="/mensajes" className="grid h-9 w-9 place-items-center rounded-full text-slate-400 ring-1 ring-white/10 transition hover:text-white hover:bg-white/5" aria-label="Mensajes">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           </Link>
@@ -94,6 +105,37 @@ export function Navbar() {
           )}
         </div>
       </div>
+
+      {/* Panel de navegación móvil */}
+      {mobileOpen && (
+        <div className="border-t border-white/[0.06] bg-ink-950/95 px-5 py-4 lg:hidden">
+          <form onSubmit={search} className="mb-3">
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar equipos..."
+              className="w-full rounded-full bg-ink-800 py-2.5 px-4 text-sm text-slate-100 placeholder:text-slate-500 ring-1 ring-white/10 outline-none focus:ring-2 focus:ring-brand-500/60"
+            />
+          </form>
+          <nav className="flex flex-col">
+            {links.map((l) => (
+              <Link
+                key={l.label}
+                to={l.to}
+                onClick={() => setMobileOpen(false)}
+                className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
+              >
+                {l.label}
+              </Link>
+            ))}
+            {!user && (
+              <Link to="/login" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2.5 text-sm font-medium text-brand-400 hover:bg-white/5">
+                Ingresar
+              </Link>
+            )}
+          </nav>
+        </div>
+      )}
     </header>
   );
 }

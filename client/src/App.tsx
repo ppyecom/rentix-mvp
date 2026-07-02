@@ -12,6 +12,7 @@ import Checkout from './pages/Checkout';
 import Messages from './pages/Messages';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Profile from './pages/Profile';
 
 function Protected({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/marketplace" element={<Marketplace />} />
         <Route path="/equipo/:id" element={<EquipmentDetail />} />
+        <Route path="/perfil/:id" element={<Profile />} />
         <Route path="/login" element={<Login />} />
         <Route path="/registro" element={<Register />} />
         <Route path="/publicar" element={<Protected><Publish /></Protected>} />

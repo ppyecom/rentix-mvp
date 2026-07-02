@@ -1,6 +1,7 @@
 node_modules/
 dist/
 *.log
+*.tsbuildinfo
 
 # SQLite database (regenerable via npm run seed)
 server/rentix.db

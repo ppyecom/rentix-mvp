@@ -21,6 +21,29 @@ export default function Publish() {
   function set<K extends keyof typeof form>(k: K, v: string) {
     setForm((f) => ({ ...f, [k]: v }));
   }
+
+  // Lee un archivo de imagen, lo redimensiona (máx 1000px) y lo guarda como data URL.
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { setError('El archivo debe ser una imagen'); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const max = 1000;
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        set('image', canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  }
   function setSpec(i: number, key: 'label' | 'value', v: string) {
     setSpecs((s) => s.map((sp, idx) => (idx === i ? { ...sp, [key]: v } : sp)));
   }
@@ -80,8 +103,22 @@ export default function Publish() {
               <input className="input" type="number" min="1" placeholder="120" value={form.price_per_day} onChange={(e) => set('price_per_day', e.target.value)} required />
             </div>
             <div>
-              <label className="label">URL de imagen</label>
-              <input className="input" value={form.image} onChange={(e) => set('image', e.target.value)} />
+              <label className="label">Imagen del equipo</label>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <label className="btn-ghost cursor-pointer">
+                  📷 Subir foto
+                  <input type="file" accept="image/*" onChange={onFile} className="hidden" />
+                </label>
+                <input
+                  className="input flex-1"
+                  placeholder="...o pega una URL de imagen"
+                  value={form.image.startsWith('data:') ? '' : form.image}
+                  onChange={(e) => set('image', e.target.value)}
+                />
+              </div>
+              {form.image.startsWith('data:') && (
+                <p className="mt-1 text-xs text-neon-green">✓ Imagen subida desde tu dispositivo</p>
+              )}
             </div>
           </div>
 

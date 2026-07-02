@@ -23,6 +23,12 @@ export default function EquipmentDetail() {
   const [msg, setMsg] = useState('');
   const [sending, setSending] = useState(false);
 
+  // Formulario de reseñas
+  const [rvRating, setRvRating] = useState(5);
+  const [rvComment, setRvComment] = useState('');
+  const [rvBusy, setRvBusy] = useState(false);
+  const [rvError, setRvError] = useState('');
+
   useEffect(() => {
     setLoading(true);
     api.get<{ equipment: Equipment; reviews: Review[]; similar: Equipment[] }>(`/equipment/${id}`)
@@ -44,6 +50,28 @@ export default function EquipmentDetail() {
     if (!user) return navigate('/login', { state: { from: `/equipo/${id}` } });
     if (!end || days < 1) return;
     navigate(`/checkout/${eq!.id}?start=${start}&end=${end}`);
+  }
+
+  async function submitReview(e: React.FormEvent) {
+    e.preventDefault();
+    if (!user) return navigate('/login', { state: { from: `/equipo/${id}` } });
+    if (!rvComment.trim()) return;
+    setRvBusy(true);
+    setRvError('');
+    try {
+      const r = await api.post<{ reviews: Review[]; rating: number; reviews_count: number }>(
+        `/equipment/${id}/reviews`,
+        { rating: rvRating, comment: rvComment }
+      );
+      setReviews(r.reviews);
+      setEq((prev) => (prev ? { ...prev, rating: r.rating, reviews_count: r.reviews_count } : prev));
+      setRvComment('');
+      setRvRating(5);
+    } catch (err: any) {
+      setRvError(err.message);
+    } finally {
+      setRvBusy(false);
+    }
   }
 
   async function sendMessage(e: React.FormEvent) {
@@ -128,6 +156,40 @@ export default function EquipmentDetail() {
           {/* Reviews */}
           <div className="mt-8">
             <h2 className="mb-4 text-xl font-bold text-white">Reseñas ({reviews.length})</h2>
+
+            {/* Formulario para dejar una reseña */}
+            <form onSubmit={submitReview} className="card mb-5 p-4">
+              <div className="mb-3 flex items-center gap-3">
+                <span className="text-sm font-medium text-slate-300">Tu calificación:</span>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setRvRating(n)}
+                      className={`text-xl transition ${n <= rvRating ? 'text-neon-cyan' : 'text-ink-500'}`}
+                      aria-label={`${n} estrellas`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {rvError && <p className="mb-2 text-sm text-rose-400">{rvError}</p>}
+              <textarea
+                value={rvComment}
+                onChange={(e) => setRvComment(e.target.value)}
+                placeholder={user ? 'Comparte tu experiencia con este equipo...' : 'Inicia sesión para dejar una reseña'}
+                rows={2}
+                className="input resize-none"
+              />
+              <div className="mt-2 flex justify-end">
+                <button className="btn-primary" disabled={rvBusy || !rvComment.trim()}>
+                  {rvBusy ? 'Enviando...' : 'Publicar reseña'}
+                </button>
+              </div>
+            </form>
+
             {reviews.length === 0 ? (
               <p className="text-sm text-slate-500">Aún no hay reseñas para este equipo.</p>
             ) : (
@@ -192,18 +254,18 @@ export default function EquipmentDetail() {
           {/* Owner card */}
           <div className="card mt-4 p-5">
             <p className="mb-3 text-xs uppercase tracking-wide text-slate-500">Arrendador</p>
-            <div className="flex items-center gap-3">
+            <Link to={`/perfil/${eq.owner_id}`} className="flex items-center gap-3 rounded-xl p-1 transition hover:bg-white/5">
               <Avatar src={eq.owner_avatar} alt={eq.owner_name || 'Owner'} size={48} />
               <div>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-semibold text-white">{eq.owner_name}</span>
+                  <span className="font-semibold text-white hover:underline">{eq.owner_name}</span>
                   {eq.owner_verified ? <VerifiedTick /> : null}
                 </div>
                 <div className="flex items-center gap-1 text-xs text-slate-400">
                   <Stars rating={eq.owner_rating || 5} /> · {eq.owner_reviews} reseñas
                 </div>
               </div>
-            </div>
+            </Link>
             <form onSubmit={sendMessage} className="mt-4">
               <textarea
                 value={msg}
