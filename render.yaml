@@ -12,3 +12,9 @@ services:
         value: production
       - key: JWT_SECRET
         generateValue: true
+      # Base de datos persistente en Turso (configúralas en el dashboard de Render).
+      # Si las dejas vacías, usa un archivo local efímero.
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false

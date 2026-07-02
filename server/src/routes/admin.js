@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db.js';
 import { requireAdmin } from '../auth.js';
+import { ah } from './_wrap.js';
 
 const router = Router();
 
@@ -8,20 +9,20 @@ const router = Router();
 router.use(requireAdmin);
 
 // GET /api/admin/stats  (métricas globales de la plataforma)
-router.get('/stats', (_req, res) => {
-  const one = (sql) => db.prepare(sql).get().n;
+router.get('/stats', ah(async (_req, res) => {
+  const one = async (sql) => (await db.prepare(sql).get()).n;
   res.json({
-    users: one('SELECT COUNT(*) AS n FROM users'),
-    equipment: one('SELECT COUNT(*) AS n FROM equipment'),
-    bookings: one('SELECT COUNT(*) AS n FROM bookings'),
-    revenue: db.prepare("SELECT COALESCE(SUM(service_fee),0) AS n FROM bookings WHERE payment_status='confirmado'").get().n,
-    reports_open: one("SELECT COUNT(*) AS n FROM reports WHERE status='abierto'"),
-    reports_total: one('SELECT COUNT(*) AS n FROM reports'),
+    users: await one('SELECT COUNT(*) AS n FROM users'),
+    equipment: await one('SELECT COUNT(*) AS n FROM equipment'),
+    bookings: await one('SELECT COUNT(*) AS n FROM bookings'),
+    revenue: (await db.prepare("SELECT COALESCE(SUM(service_fee),0) AS n FROM bookings WHERE payment_status='confirmado'").get()).n,
+    reports_open: await one("SELECT COUNT(*) AS n FROM reports WHERE status='abierto'"),
+    reports_total: await one('SELECT COUNT(*) AS n FROM reports'),
   });
-});
+}));
 
 // GET /api/admin/reports  (todos los reportes con contexto)
-router.get('/reports', (req, res) => {
+router.get('/reports', ah(async (req, res) => {
   const { status } = req.query;
   let sql = `
     SELECT r.*, eq.title AS equipment_title,
@@ -36,19 +37,19 @@ router.get('/reports', (req, res) => {
   `;
   const params = [];
   if (status) { sql += ' WHERE r.status = ?'; params.push(status); }
-  sql += ' ORDER BY CASE r.status WHEN \'abierto\' THEN 0 WHEN \'en_revision\' THEN 1 ELSE 2 END, r.created_at DESC';
-  res.json({ reports: db.prepare(sql).all(...params) });
-});
+  sql += " ORDER BY CASE r.status WHEN 'abierto' THEN 0 WHEN 'en_revision' THEN 1 ELSE 2 END, r.created_at DESC";
+  res.json({ reports: await db.prepare(sql).all(params) });
+}));
 
 // PUT /api/admin/reports/:id  { status }
-router.put('/reports/:id', (req, res) => {
+router.put('/reports/:id', ah(async (req, res) => {
   const { status } = req.body || {};
   const valid = ['abierto', 'en_revision', 'resuelto'];
   if (!valid.includes(status)) return res.status(400).json({ error: 'Estado inválido' });
-  const r = db.prepare('SELECT id FROM reports WHERE id = ?').get(req.params.id);
+  const r = await db.prepare('SELECT id FROM reports WHERE id = ?').get(req.params.id);
   if (!r) return res.status(404).json({ error: 'Reporte no encontrado' });
-  db.prepare('UPDATE reports SET status = ? WHERE id = ?').run(status, req.params.id);
-  res.json({ report: db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id) });
-});
+  await db.prepare('UPDATE reports SET status = ? WHERE id = ?').run(status, req.params.id);
+  res.json({ report: await db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id) });
+}));
 
 export default router;

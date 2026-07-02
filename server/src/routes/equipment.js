@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db.js';
 import { requireAuth } from '../auth.js';
+import { ah } from './_wrap.js';
 
 const router = Router();
 
@@ -23,7 +24,7 @@ const OWNER_JOIN = `
 `;
 
 // GET /api/equipment?category=&q=&city=&sort=
-router.get('/', (req, res) => {
+router.get('/', ah(async (req, res) => {
   const { category, q, city, sort } = req.query;
   const where = [];
   const params = {};
@@ -38,35 +39,35 @@ router.get('/', (req, res) => {
   else if (sort === 'rating') sql += ' ORDER BY eq.rating DESC';
   else sql += ' ORDER BY eq.created_at DESC';
 
-  const rows = db.prepare(sql).all(params).map(hydrate);
+  const rows = (await db.prepare(sql).all(params)).map(hydrate);
   res.json({ equipment: rows });
-});
+}));
 
-router.get('/categories', (_req, res) => {
-  const rows = db.prepare('SELECT category, COUNT(*) AS count FROM equipment GROUP BY category').all();
+router.get('/categories', ah(async (_req, res) => {
+  const rows = await db.prepare('SELECT category, COUNT(*) AS count FROM equipment GROUP BY category').all();
   res.json({ categories: rows });
-});
+}));
 
-router.get('/:id', (req, res) => {
-  const e = db.prepare(OWNER_JOIN + ' WHERE eq.id = ?').get(req.params.id);
+router.get('/:id', ah(async (req, res) => {
+  const e = await db.prepare(OWNER_JOIN + ' WHERE eq.id = ?').get(req.params.id);
   if (!e) return res.status(404).json({ error: 'Equipo no encontrado' });
-  const reviews = db
+  const reviews = await db
     .prepare('SELECT * FROM reviews WHERE equipment_id = ? ORDER BY created_at DESC')
     .all(req.params.id);
-  const similar = db
+  const similar = (await db
     .prepare(OWNER_JOIN + ' WHERE eq.category = ? AND eq.id != ? LIMIT 3')
-    .all(e.category, e.id)
+    .all(e.category, e.id))
     .map(hydrate);
   res.json({ equipment: hydrate(e), reviews, similar });
-});
+}));
 
 // POST /api/equipment  (publicar nuevo equipo)
-router.post('/', requireAuth, (req, res) => {
+router.post('/', requireAuth, ah(async (req, res) => {
   const { title, description, category, price_per_day, city, image, gallery, specs } = req.body || {};
   if (!title || !category || !price_per_day) {
     return res.status(400).json({ error: 'Título, categoría y precio son obligatorios' });
   }
-  const info = db
+  const info = await db
     .prepare(
       `INSERT INTO equipment (owner_id, title, description, category, price_per_day, city, image, gallery, specs, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'disponible')`
@@ -82,46 +83,42 @@ router.post('/', requireAuth, (req, res) => {
       JSON.stringify(gallery || (image ? [image] : [])),
       JSON.stringify(specs || [])
     );
-  const created = db.prepare(OWNER_JOIN + ' WHERE eq.id = ?').get(info.lastInsertRowid);
+  const created = await db.prepare(OWNER_JOIN + ' WHERE eq.id = ?').get(info.lastInsertRowid);
   res.status(201).json({ equipment: hydrate(created) });
-});
+}));
 
 // POST /api/equipment/:id/reviews  (dejar una reseña)
-router.post('/:id/reviews', requireAuth, (req, res) => {
+router.post('/:id/reviews', requireAuth, ah(async (req, res) => {
   const { rating, comment } = req.body || {};
   const r = Number(rating);
   if (!comment || !r || r < 1 || r > 5) {
     return res.status(400).json({ error: 'Calificación (1-5) y comentario son obligatorios' });
   }
-  const eq = db.prepare('SELECT id FROM equipment WHERE id = ?').get(req.params.id);
+  const eq = await db.prepare('SELECT id FROM equipment WHERE id = ?').get(req.params.id);
   if (!eq) return res.status(404).json({ error: 'Equipo no encontrado' });
 
-  const user = db.prepare('SELECT name, avatar FROM users WHERE id = ?').get(req.user.id);
-  db.prepare(
+  const user = await db.prepare('SELECT name, avatar FROM users WHERE id = ?').get(req.user.id);
+  await db.prepare(
     `INSERT INTO reviews (equipment_id, author_id, author_name, author_avatar, rating, comment)
      VALUES (?, ?, ?, ?, ?, ?)`
   ).run(req.params.id, req.user.id, user.name, user.avatar, r, comment);
 
-  // Recalcula el promedio y el conteo del equipo
-  const agg = db
+  const agg = await db
     .prepare('SELECT AVG(rating) AS avg, COUNT(*) AS n FROM reviews WHERE equipment_id = ?')
     .get(req.params.id);
-  db.prepare('UPDATE equipment SET rating = ?, reviews_count = ? WHERE id = ?').run(
-    Math.round(agg.avg * 10) / 10,
-    agg.n,
-    req.params.id
-  );
+  const avg = Math.round(agg.avg * 10) / 10;
+  await db.prepare('UPDATE equipment SET rating = ?, reviews_count = ? WHERE id = ?').run(avg, agg.n, req.params.id);
 
-  const reviews = db
+  const reviews = await db
     .prepare('SELECT * FROM reviews WHERE equipment_id = ? ORDER BY created_at DESC')
     .all(req.params.id);
-  res.status(201).json({ reviews, rating: Math.round(agg.avg * 10) / 10, reviews_count: agg.n });
-});
+  res.status(201).json({ reviews, rating: avg, reviews_count: agg.n });
+}));
 
 // GET /api/equipment/mine/list  (equipos del usuario autenticado)
-router.get('/mine/list', requireAuth, (req, res) => {
-  const rows = db.prepare(OWNER_JOIN + ' WHERE eq.owner_id = ? ORDER BY eq.created_at DESC').all(req.user.id).map(hydrate);
+router.get('/mine/list', requireAuth, ah(async (req, res) => {
+  const rows = (await db.prepare(OWNER_JOIN + ' WHERE eq.owner_id = ? ORDER BY eq.created_at DESC').all(req.user.id)).map(hydrate);
   res.json({ equipment: rows });
-});
+}));
 
 export default router;

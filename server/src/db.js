@@ -1,16 +1,77 @@
-import Database from 'better-sqlite3';
+import { createClient } from '@libsql/client';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = path.join(__dirname, '..', 'rentix.db');
 
-export const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+// En producción se usa Turso (nube). En local, un archivo libSQL.
+// Configura en el servidor:  TURSO_DATABASE_URL y TURSO_AUTH_TOKEN
+const url = process.env.TURSO_DATABASE_URL || `file:${path.join(__dirname, '..', 'rentix.db')}`;
+const authToken = process.env.TURSO_AUTH_TOKEN;
 
-export function initSchema() {
-  db.exec(`
+const client = createClient(authToken ? { url, authToken } : { url });
+
+// Extrae de un SQL los nombres de parámetros (@x, :x, $x) para pasar solo
+// las claves relevantes (tolerante a objetos con claves extra, como better-sqlite3).
+function pickNamed(sql, obj) {
+  const names = new Set();
+  const re = /[@:$]([a-zA-Z_][a-zA-Z0-9_]*)/g;
+  let m;
+  while ((m = re.exec(sql))) names.add(m[1]);
+  const out = {};
+  for (const k of names) if (k in obj) out[k] = normalize(obj[k]);
+  return out;
+}
+
+// libSQL no acepta booleanos ni undefined: normaliza a int/null.
+function normalize(v) {
+  if (typeof v === 'boolean') return v ? 1 : 0;
+  if (v === undefined) return null;
+  return v;
+}
+
+function toArgs(sql, args) {
+  if (args.length === 1 && args[0] && typeof args[0] === 'object' && !Array.isArray(args[0])) {
+    return pickNamed(sql, args[0]); // parámetros con nombre
+  }
+  if (args.length === 1 && Array.isArray(args[0])) return args[0].map(normalize);
+  return args.map(normalize); // posicionales
+}
+
+function rowObj(row, columns) {
+  const o = {};
+  for (const c of columns) o[c] = row[c];
+  return o;
+}
+
+// Wrapper con la misma forma que better-sqlite3, pero asíncrono.
+export const db = {
+  prepare(sql) {
+    return {
+      async get(...args) {
+        const r = await client.execute({ sql, args: toArgs(sql, args) });
+        return r.rows[0] ? rowObj(r.rows[0], r.columns) : undefined;
+      },
+      async all(...args) {
+        const r = await client.execute({ sql, args: toArgs(sql, args) });
+        return r.rows.map((row) => rowObj(row, r.columns));
+      },
+      async run(...args) {
+        const r = await client.execute({ sql, args: toArgs(sql, args) });
+        return {
+          changes: r.rowsAffected,
+          lastInsertRowid: r.lastInsertRowid != null ? Number(r.lastInsertRowid) : undefined,
+        };
+      },
+    };
+  },
+  async exec(sql) {
+    await client.executeMultiple(sql);
+  },
+};
+
+export async function initSchema() {
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
       name          TEXT NOT NULL,
@@ -43,8 +104,7 @@ export function initSchema() {
       rating        REAL DEFAULT 5.0,
       reviews_count INTEGER DEFAULT 0,
       shield        INTEGER DEFAULT 1,
-      created_at    TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (owner_id) REFERENCES users(id)
+      created_at    TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS bookings (
@@ -61,9 +121,7 @@ export function initSchema() {
       payment_method TEXT DEFAULT 'yape',
       payment_status TEXT DEFAULT 'pendiente_pago',
       yape_operation TEXT DEFAULT '',
-      created_at    TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (equipment_id) REFERENCES equipment(id),
-      FOREIGN KEY (renter_id) REFERENCES users(id)
+      created_at    TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS messages (
@@ -73,9 +131,7 @@ export function initSchema() {
       equipment_id  INTEGER,
       body          TEXT NOT NULL,
       read          INTEGER DEFAULT 0,
-      created_at    TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (from_id) REFERENCES users(id),
-      FOREIGN KEY (to_id) REFERENCES users(id)
+      created_at    TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS reviews (
@@ -86,8 +142,7 @@ export function initSchema() {
       author_avatar TEXT,
       rating        REAL NOT NULL,
       comment       TEXT NOT NULL,
-      created_at    TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (equipment_id) REFERENCES equipment(id)
+      created_at    TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS reports (
@@ -95,33 +150,11 @@ export function initSchema() {
       booking_id    INTEGER NOT NULL,
       reporter_id   INTEGER NOT NULL,
       against_id    INTEGER NOT NULL,
-      reporter_role TEXT NOT NULL,          -- 'arrendador' | 'arrendatario'
+      reporter_role TEXT NOT NULL,
       reason        TEXT NOT NULL,
       description   TEXT DEFAULT '',
-      status        TEXT DEFAULT 'abierto', -- 'abierto' | 'en_revision' | 'resuelto'
-      created_at    TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (booking_id) REFERENCES bookings(id),
-      FOREIGN KEY (reporter_id) REFERENCES users(id),
-      FOREIGN KEY (against_id) REFERENCES users(id)
+      status        TEXT DEFAULT 'abierto',
+      created_at    TEXT DEFAULT (datetime('now'))
     );
   `);
-
-  migrate();
-}
-
-// Añade columnas nuevas a bases de datos ya creadas (idempotente).
-function migrate() {
-  const add = (table, col, def) => {
-    try {
-      db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
-    } catch {
-      /* la columna ya existe */
-    }
-  };
-  add('users', 'yape_number', "TEXT DEFAULT ''");
-  add('users', 'yape_name', "TEXT DEFAULT ''");
-  add('bookings', 'payment_method', "TEXT DEFAULT 'yape'");
-  add('bookings', 'payment_status', "TEXT DEFAULT 'pendiente_pago'");
-  add('bookings', 'yape_operation', "TEXT DEFAULT ''");
-  add('users', 'is_admin', 'INTEGER DEFAULT 0');
 }

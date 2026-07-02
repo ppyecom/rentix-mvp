@@ -158,6 +158,31 @@ sudo systemctl restart rentix
 > **Backup de datos:** todo vive en `server/rentix.db`. Cópialo periódicamente
 > (`cp server/rentix.db ~/backups/rentix-$(date +%F).db`).
 
+## Base de datos persistente con Turso (gratis)
+
+La app usa **libSQL** (`@libsql/client`), compatible con SQLite. En local guarda en un
+archivo (`server/rentix.db`); en producción apunta a **Turso** (SQLite en la nube,
+capa gratuita) para que los datos **persistan** aunque el hosting sea efímero.
+
+### Crear la base en Turso
+
+1. Crea una cuenta en https://turso.tech (gratis).
+2. Instala la CLI y crea la base:
+   ```bash
+   # con la CLI de Turso
+   turso db create rentix
+   turso db show rentix --url          # -> TURSO_DATABASE_URL (libsql://...)
+   turso db tokens create rentix       # -> TURSO_AUTH_TOKEN
+   ```
+   > También puedes crear la base y copiar la URL + token desde el panel web de Turso.
+3. En **Render → tu servicio → Environment**, agrega:
+   - `TURSO_DATABASE_URL` = `libsql://rentix-....turso.io`
+   - `TURSO_AUTH_TOKEN` = el token generado
+4. Redespliega. Al primer arranque, el servidor **siembra** los datos de ejemplo en
+   Turso; de ahí en adelante **todo persiste**.
+
+Sin esas variables, el servidor usa el archivo local (útil para desarrollo).
+
 ## Logo
 
 El logo de marca está recreado como SVG en `client/src/components/Logo.tsx` y

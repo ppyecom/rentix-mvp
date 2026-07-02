@@ -1,34 +1,17 @@
 import { Router } from 'express';
 import { db } from '../db.js';
 import { requireAuth } from '../auth.js';
+import { ah } from './_wrap.js';
 
 const router = Router();
 
-// Motivos válidos según quién reporta
-export const REASONS = {
-  arrendatario: [
-    'Equipo no entregado',
-    'Equipo dañado / no funciona',
-    'El arrendador no responde',
-    'Cobro indebido',
-    'Otro',
-  ],
-  arrendador: [
-    'No devolvió el equipo (robo)',
-    'Equipo devuelto dañado',
-    'No pagó',
-    'El arrendatario no responde',
-    'Otro',
-  ],
-};
-
 // POST /api/reports  { booking_id, reason, description }
-router.post('/', requireAuth, (req, res) => {
+router.post('/', requireAuth, ah(async (req, res) => {
   const { booking_id, reason, description } = req.body || {};
   if (!booking_id || !reason) {
     return res.status(400).json({ error: 'Reserva y motivo son obligatorios' });
   }
-  const b = db
+  const b = await db
     .prepare(
       `SELECT b.*, eq.owner_id FROM bookings b JOIN equipment eq ON eq.id = b.equipment_id WHERE b.id = ?`
     )
@@ -44,20 +27,20 @@ router.post('/', requireAuth, (req, res) => {
   const reporter_role = isRenter ? 'arrendatario' : 'arrendador';
   const against_id = isRenter ? b.owner_id : b.renter_id;
 
-  const info = db
+  const info = await db
     .prepare(
       `INSERT INTO reports (booking_id, reporter_id, against_id, reporter_role, reason, description)
        VALUES (?, ?, ?, ?, ?, ?)`
     )
     .run(booking_id, me, against_id, reporter_role, reason, description || '');
 
-  res.status(201).json({ report: db.prepare('SELECT * FROM reports WHERE id = ?').get(info.lastInsertRowid) });
-});
+  res.status(201).json({ report: await db.prepare('SELECT * FROM reports WHERE id = ?').get(info.lastInsertRowid) });
+}));
 
 // GET /api/reports/mine  (reportes que hice o que hicieron contra mí)
-router.get('/mine', requireAuth, (req, res) => {
+router.get('/mine', requireAuth, ah(async (req, res) => {
   const me = req.user.id;
-  const rows = db
+  const rows = await db
     .prepare(
       `SELECT r.*, eq.title AS equipment_title,
               reporter.name AS reporter_name,
@@ -73,6 +56,6 @@ router.get('/mine', requireAuth, (req, res) => {
     .all(me, me);
   const enriched = rows.map((r) => ({ ...r, direction: r.reporter_id === me ? 'enviado' : 'recibido' }));
   res.json({ reports: enriched });
-});
+}));
 
 export default router;

@@ -28,15 +28,19 @@ export function requireAuth(req, res, next) {
 }
 
 // Middleware: requires the authenticated user to be an admin
-export function requireAdmin(req, res, next) {
-  const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
-  const payload = token ? verifyToken(token) : null;
-  if (!payload) return res.status(401).json({ error: 'No autorizado' });
-  const user = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(payload.id);
-  if (!user || !user.is_admin) return res.status(403).json({ error: 'Requiere permisos de administrador' });
-  req.user = payload;
-  next();
+export async function requireAdmin(req, res, next) {
+  try {
+    const header = req.headers.authorization || '';
+    const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+    const payload = token ? verifyToken(token) : null;
+    if (!payload) return res.status(401).json({ error: 'No autorizado' });
+    const user = await db.prepare('SELECT is_admin FROM users WHERE id = ?').get(payload.id);
+    if (!user || !user.is_admin) return res.status(403).json({ error: 'Requiere permisos de administrador' });
+    req.user = payload;
+    next();
+  } catch (e) {
+    next(e);
+  }
 }
 
 // Middleware: attaches user if token present, but does not block

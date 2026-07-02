@@ -3,19 +3,20 @@ import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
 import { db, initSchema } from './db.js';
 
-export function runSeed() {
-initSchema();
+export async function runSeed() {
+await initSchema();
 
 // Wipe existing data (idempotent seed). El orden respeta las claves foráneas.
-db.exec(`
+await db.exec(`
   DELETE FROM reports;
   DELETE FROM reviews;
   DELETE FROM messages;
   DELETE FROM bookings;
   DELETE FROM equipment;
   DELETE FROM users;
-  DELETE FROM sqlite_sequence;
 `);
+// Resetea los contadores AUTOINCREMENT (la tabla puede no existir en una BD nueva).
+try { await db.exec('DELETE FROM sqlite_sequence;'); } catch { /* aún no existe */ }
 
 const hash = (pw) => bcrypt.hashSync(pw, 10);
 
@@ -64,7 +65,7 @@ const insertUser = db.prepare(`
 
 const userIds = {};
 for (const u of users) {
-  const info = insertUser.run({ ...u, is_admin: u.is_admin || 0, password_hash: hash(u.password) });
+  const info = await insertUser.run({ ...u, is_admin: u.is_admin || 0, password_hash: hash(u.password) });
   userIds[u.email] = info.lastInsertRowid;
 }
 
@@ -209,7 +210,7 @@ const insertEq = db.prepare(`
 
 const eqIds = [];
 for (const e of equipment) {
-  const info = insertEq.run({
+  const info = await insertEq.run({
     owner_id: userIds[e.owner],
     title: e.title,
     description: e.description,
@@ -233,12 +234,12 @@ const insertReview = db.prepare(`
   VALUES (@equipment_id, @author_id, @author_name, @author_avatar, @rating, @comment)
 `);
 
-insertReview.run({
+await insertReview.run({
   equipment_id: eqIds[0], author_id: userIds['sofia@rentix.pe'],
   author_name: 'Sofía R.', author_avatar: 'https://i.pravatar.cc/150?img=45',
   rating: 5, comment: 'Equipo impecable, todo funcionó perfecto en el rodaje. Marcus muy profesional.',
 });
-insertReview.run({
+await insertReview.run({
   equipment_id: eqIds[0], author_id: userIds['diego@rentix.pe'],
   author_name: 'Diego M.', author_avatar: 'https://i.pravatar.cc/150?img=68',
   rating: 5, comment: 'La mejor cámara que he alquilado. Entrega puntual y el Rentix Shield me dio tranquilidad.',
@@ -249,9 +250,9 @@ const insertMsg = db.prepare(`
   INSERT INTO messages (from_id, to_id, equipment_id, body, read)
   VALUES (@from_id, @to_id, @equipment_id, @body, @read)
 `);
-insertMsg.run({ from_id: userIds['demo@rentix.pe'], to_id: userIds['marcus@rentix.pe'], equipment_id: eqIds[0], body: 'Hola Marcus, ¿la RED Komodo está disponible este fin de semana?', read: 1 });
-insertMsg.run({ from_id: userIds['marcus@rentix.pe'], to_id: userIds['demo@rentix.pe'], equipment_id: eqIds[0], body: '¡Hola! Sí, disponible. ¿Para cuántos días la necesitas?', read: 1 });
-insertMsg.run({ from_id: userIds['demo@rentix.pe'], to_id: userIds['marcus@rentix.pe'], equipment_id: eqIds[0], body: 'Serían 3 días. ¿Incluye las baterías extra?', read: 0 });
+await insertMsg.run({ from_id: userIds['demo@rentix.pe'], to_id: userIds['marcus@rentix.pe'], equipment_id: eqIds[0], body: 'Hola Marcus, ¿la RED Komodo está disponible este fin de semana?', read: 1 });
+await insertMsg.run({ from_id: userIds['marcus@rentix.pe'], to_id: userIds['demo@rentix.pe'], equipment_id: eqIds[0], body: '¡Hola! Sí, disponible. ¿Para cuántos días la necesitas?', read: 1 });
+await insertMsg.run({ from_id: userIds['demo@rentix.pe'], to_id: userIds['marcus@rentix.pe'], equipment_id: eqIds[0], body: 'Serían 3 días. ¿Incluye las baterías extra?', read: 0 });
 
 console.log('✅ Seed completado');
 console.log(`   ${users.length} usuarios, ${equipment.length} equipos`);
@@ -262,5 +263,5 @@ console.log('   Cuenta admin: admin@rentix.pe / admin1234');
 // Ejecuta el seed solo cuando se corre directamente (npm run seed),
 // no cuando se importa desde el servidor.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  runSeed();
+  runSeed().catch((e) => { console.error(e); process.exit(1); });
 }
