@@ -22,6 +22,8 @@ export function initSchema() {
       rating        REAL DEFAULT 5.0,
       reviews_count INTEGER DEFAULT 0,
       bio           TEXT DEFAULT '',
+      yape_number   TEXT DEFAULT '',
+      yape_name     TEXT DEFAULT '',
       created_at    TEXT DEFAULT (datetime('now'))
     );
 
@@ -54,7 +56,10 @@ export function initSchema() {
       subtotal      REAL NOT NULL,
       service_fee   REAL NOT NULL,
       total         REAL NOT NULL,
-      status        TEXT DEFAULT 'confirmada',
+      status        TEXT DEFAULT 'activa',
+      payment_method TEXT DEFAULT 'yape',
+      payment_status TEXT DEFAULT 'pendiente_pago',
+      yape_operation TEXT DEFAULT '',
       created_at    TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (equipment_id) REFERENCES equipment(id),
       FOREIGN KEY (renter_id) REFERENCES users(id)
@@ -83,5 +88,38 @@ export function initSchema() {
       created_at    TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (equipment_id) REFERENCES equipment(id)
     );
+
+    CREATE TABLE IF NOT EXISTS reports (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      booking_id    INTEGER NOT NULL,
+      reporter_id   INTEGER NOT NULL,
+      against_id    INTEGER NOT NULL,
+      reporter_role TEXT NOT NULL,          -- 'arrendador' | 'arrendatario'
+      reason        TEXT NOT NULL,
+      description   TEXT DEFAULT '',
+      status        TEXT DEFAULT 'abierto', -- 'abierto' | 'en_revision' | 'resuelto'
+      created_at    TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (booking_id) REFERENCES bookings(id),
+      FOREIGN KEY (reporter_id) REFERENCES users(id),
+      FOREIGN KEY (against_id) REFERENCES users(id)
+    );
   `);
+
+  migrate();
+}
+
+// Añade columnas nuevas a bases de datos ya creadas (idempotente).
+function migrate() {
+  const add = (table, col, def) => {
+    try {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
+    } catch {
+      /* la columna ya existe */
+    }
+  };
+  add('users', 'yape_number', "TEXT DEFAULT ''");
+  add('users', 'yape_name', "TEXT DEFAULT ''");
+  add('bookings', 'payment_method', "TEXT DEFAULT 'yape'");
+  add('bookings', 'payment_status', "TEXT DEFAULT 'pendiente_pago'");
+  add('bookings', 'yape_operation', "TEXT DEFAULT ''");
 }

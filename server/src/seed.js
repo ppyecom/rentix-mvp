@@ -24,30 +24,34 @@ const users = [
     avatar: 'https://i.pravatar.cc/150?img=12', city: 'Arequipa, Perú',
     verified: 1, rating: 4.9, reviews_count: 128,
     bio: 'Arrendador destacado. Especialista en equipo cinematográfico profesional.',
+    yape_number: '987654321', yape_name: 'Marcus Valverde',
   },
   {
     name: 'Sofía R.', email: 'sofia@rentix.pe', password: 'demo1234',
     avatar: 'https://i.pravatar.cc/150?img=45', city: 'Lima, Perú',
     verified: 1, rating: 4.8, reviews_count: 74,
     bio: 'Fotógrafa y creadora de contenido. Rento mi equipo cuando no lo uso.',
+    yape_number: '912345678', yape_name: 'Sofía Ramírez',
   },
   {
     name: 'Diego M.', email: 'diego@rentix.pe', password: 'demo1234',
     avatar: 'https://i.pravatar.cc/150?img=68', city: 'Cusco, Perú',
     verified: 1, rating: 5.0, reviews_count: 39,
     bio: 'Gamer y streamer. Hardware de alto rendimiento disponible.',
+    yape_number: '998877665', yape_name: 'Diego Mendoza',
   },
   {
     name: 'Demo User', email: 'demo@rentix.pe', password: 'demo1234',
     avatar: 'https://i.pravatar.cc/150?img=3', city: 'Lima, Perú',
     verified: 1, rating: 5.0, reviews_count: 0,
     bio: 'Cuenta de demostración de Rentix.',
+    yape_number: '', yape_name: '',
   },
 ];
 
 const insertUser = db.prepare(`
-  INSERT INTO users (name, email, password_hash, avatar, city, verified, rating, reviews_count, bio)
-  VALUES (@name, @email, @password_hash, @avatar, @city, @verified, @rating, @reviews_count, @bio)
+  INSERT INTO users (name, email, password_hash, avatar, city, verified, rating, reviews_count, bio, yape_number, yape_name)
+  VALUES (@name, @email, @password_hash, @avatar, @city, @verified, @rating, @reviews_count, @bio, @yape_number, @yape_name)
 `);
 
 const userIds = {};

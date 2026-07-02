@@ -29,6 +29,17 @@ export function StatusBadge({ status }: { status: string }) {
   );
 }
 
+const PAY_STATES: Record<string, { label: string; cls: string }> = {
+  pendiente_pago: { label: 'Pendiente de pago', cls: 'bg-amber-500/15 text-amber-400 ring-amber-500/30' },
+  pago_reportado: { label: 'Pago reportado', cls: 'bg-neon-cyan/15 text-neon-cyan ring-neon-cyan/30' },
+  confirmado: { label: 'Confirmado', cls: 'bg-neon-green/15 text-neon-green ring-neon-green/30' },
+};
+
+export function PaymentBadge({ status }: { status?: string }) {
+  const s = PAY_STATES[status || 'pendiente_pago'] || PAY_STATES.pendiente_pago;
+  return <span className={`chip ${s.cls}`}>{s.label}</span>;
+}
+
 export function Pin({ city, className = '' }: { city: string; className?: string }) {
   return (
     <span className={`inline-flex items-center gap-1 text-slate-400 ${className}`}>

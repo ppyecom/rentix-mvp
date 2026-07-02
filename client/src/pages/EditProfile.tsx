@@ -15,6 +15,8 @@ export default function EditProfile() {
     city: user?.city || cities[0],
     bio: user?.bio || '',
     avatar: user?.avatar || '',
+    yape_number: user?.yape_number || '',
+    yape_name: user?.yape_name || '',
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -110,6 +112,39 @@ export default function EditProfile() {
             onChange={(e) => set('bio', e.target.value)}
           />
           <p className="mt-1 text-right text-xs text-slate-500">{form.bio.length}/280</p>
+        </div>
+
+        {/* Datos de cobro con Yape */}
+        <div className="rounded-xl bg-violet-500/5 p-4 ring-1 ring-violet-500/15">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-violet-500/20 text-sm">💜</span>
+            <div>
+              <h3 className="text-sm font-semibold text-white">Cobros con Yape</h3>
+              <p className="text-xs text-slate-400">Para recibir pagos cuando alquilen tus equipos.</p>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="label">Número Yape</label>
+              <input
+                className="input"
+                inputMode="numeric"
+                maxLength={9}
+                placeholder="9XXXXXXXX"
+                value={form.yape_number}
+                onChange={(e) => set('yape_number', e.target.value.replace(/\D/g, ''))}
+              />
+            </div>
+            <div>
+              <label className="label">Nombre en Yape</label>
+              <input
+                className="input"
+                placeholder="Como aparece en tu cuenta"
+                value={form.yape_name}
+                onChange={(e) => set('yape_name', e.target.value)}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="flex gap-3">

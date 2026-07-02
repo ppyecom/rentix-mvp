@@ -12,8 +12,11 @@ export default function Publish() {
   const [form, setForm] = useState({
     title: '', description: '', category: cats[0], price_per_day: '',
     city: cities[0],
-    image: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=1000&q=80',
   });
+  const [images, setImages] = useState<string[]>([
+    'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=1000&q=80',
+  ]);
+  const [urlInput, setUrlInput] = useState('');
   const [specs, setSpecs] = useState<{ label: string; value: string }[]>([{ label: '', value: '' }]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -22,27 +25,38 @@ export default function Publish() {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
-  // Lee un archivo de imagen, lo redimensiona (máx 1000px) y lo guarda como data URL.
-  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) { setError('El archivo debe ser una imagen'); return; }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const max = 1000;
-        const scale = Math.min(1, max / Math.max(img.width, img.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-        set('image', canvas.toDataURL('image/jpeg', 0.82));
+  // Lee uno o varios archivos, los redimensiona (máx 1000px) y los añade a la galería.
+  function onFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    files.forEach((file) => {
+      if (!file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const max = 1000;
+          const scale = Math.min(1, max / Math.max(img.width, img.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
+          setImages((prev) => [...prev, canvas.toDataURL('image/jpeg', 0.82)].slice(0, 6));
+        };
+        img.src = reader.result as string;
       };
-      img.src = reader.result as string;
-    };
-    reader.readAsDataURL(file);
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  }
+
+  function addUrl() {
+    if (!urlInput.trim()) return;
+    setImages((prev) => [...prev, urlInput.trim()].slice(0, 6));
+    setUrlInput('');
+  }
+
+  function removeImage(i: number) {
+    setImages((prev) => prev.filter((_, idx) => idx !== i));
   }
   function setSpec(i: number, key: 'label' | 'value', v: string) {
     setSpecs((s) => s.map((sp, idx) => (idx === i ? { ...sp, [key]: v } : sp)));
@@ -52,11 +66,13 @@ export default function Publish() {
     e.preventDefault();
     setError('');
     setBusy(true);
+    if (images.length === 0) { setError('Agrega al menos una imagen'); setBusy(false); return; }
     try {
       const r = await api.post<{ equipment: Equipment }>('/equipment', {
         ...form,
         price_per_day: Number(form.price_per_day),
-        gallery: [form.image],
+        image: images[0],
+        gallery: images,
         specs: specs.filter((s) => s.label && s.value),
       });
       navigate(`/equipo/${r.equipment.id}`);
@@ -103,22 +119,46 @@ export default function Publish() {
               <input className="input" type="number" min="1" placeholder="120" value={form.price_per_day} onChange={(e) => set('price_per_day', e.target.value)} required />
             </div>
             <div>
-              <label className="label">Imagen del equipo</label>
+              <label className="label">Imágenes del equipo (hasta 6)</label>
+              {images.length > 0 && (
+                <div className="mb-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {images.map((src, i) => (
+                    <div key={i} className="group relative overflow-hidden rounded-xl ring-1 ring-white/10">
+                      <img src={src} alt="" className="aspect-square w-full object-cover" />
+                      {i === 0 && (
+                        <span className="absolute left-1 top-1 rounded bg-brand-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                          Principal
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeImage(i)}
+                        className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-ink-900/80 text-slate-300 opacity-0 transition group-hover:opacity-100 hover:text-rose-400"
+                        aria-label="Quitar"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="flex flex-col gap-2 sm:flex-row">
                 <label className="btn-ghost cursor-pointer">
-                  📷 Subir foto
-                  <input type="file" accept="image/*" onChange={onFile} className="hidden" />
+                  📷 Subir fotos
+                  <input type="file" accept="image/*" multiple onChange={onFiles} className="hidden" />
                 </label>
-                <input
-                  className="input flex-1"
-                  placeholder="...o pega una URL de imagen"
-                  value={form.image.startsWith('data:') ? '' : form.image}
-                  onChange={(e) => set('image', e.target.value)}
-                />
+                <div className="flex flex-1 gap-2">
+                  <input
+                    className="input flex-1"
+                    placeholder="...o pega una URL"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addUrl(); } }}
+                  />
+                  <button type="button" onClick={addUrl} className="btn-ghost">Añadir</button>
+                </div>
               </div>
-              {form.image.startsWith('data:') && (
-                <p className="mt-1 text-xs text-neon-green">✓ Imagen subida desde tu dispositivo</p>
-              )}
+              <p className="mt-1 text-xs text-slate-500">La primera imagen es la portada. Arrastra para reordenar próximamente.</p>
             </div>
           </div>
 
@@ -140,7 +180,7 @@ export default function Publish() {
         <aside className="lg:sticky lg:top-20 lg:self-start">
           <p className="mb-3 text-xs uppercase tracking-wide text-slate-500">Vista previa</p>
           <div className="card overflow-hidden">
-            <img src={form.image} alt="preview" className="aspect-[4/3] w-full object-cover" />
+            <img src={images[0] || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=1000&q=80'} alt="preview" className="aspect-[4/3] w-full object-cover" />
             <div className="p-4">
               <h3 className="font-semibold text-white">{form.title || 'Título del equipo'}</h3>
               <p className="mt-1 text-xs text-slate-400">{form.city}</p>

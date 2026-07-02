@@ -17,7 +17,8 @@ function hydrate(e) {
 const OWNER_JOIN = `
   SELECT eq.*, u.name AS owner_name, u.avatar AS owner_avatar,
          u.rating AS owner_rating, u.verified AS owner_verified,
-         u.reviews_count AS owner_reviews
+         u.reviews_count AS owner_reviews,
+         u.yape_number AS owner_yape_number, u.yape_name AS owner_yape_name
   FROM equipment eq JOIN users u ON u.id = eq.owner_id
 `;
 
