@@ -10,6 +10,7 @@ export interface User {
   bio?: string;
   yape_number?: string;
   yape_name?: string;
+  is_admin?: number | boolean;
 }
 
 export interface Spec {

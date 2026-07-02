@@ -91,6 +91,9 @@ export function Navbar() {
                   <MenuItem to="/dashboard" onClick={() => setMenu(false)}>Mi Dashboard</MenuItem>
                   <MenuItem to="/publicar" onClick={() => setMenu(false)}>Publicar equipo</MenuItem>
                   <MenuItem to="/mensajes" onClick={() => setMenu(false)}>Mensajes</MenuItem>
+                  {user.is_admin ? (
+                    <MenuItem to="/admin" onClick={() => setMenu(false)}>🛠️ Panel de Soporte</MenuItem>
+                  ) : null}
                   <button onClick={() => { logout(); setMenu(false); navigate('/'); }} className="w-full rounded-lg px-3 py-2 text-left text-sm text-rose-400 hover:bg-white/5">
                     Cerrar sesión
                   </button>

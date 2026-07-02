@@ -14,11 +14,20 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
 import EditProfile from './pages/EditProfile';
+import Admin from './pages/Admin';
 
 function Protected({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+function AdminProtected({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!user.is_admin) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
@@ -37,6 +46,7 @@ export default function App() {
         <Route path="/perfil/editar" element={<Protected><EditProfile /></Protected>} />
         <Route path="/checkout/:id" element={<Protected><Checkout /></Protected>} />
         <Route path="/mensajes" element={<Protected><Messages /></Protected>} />
+        <Route path="/admin" element={<AdminProtected><Admin /></AdminProtected>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

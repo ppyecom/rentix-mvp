@@ -12,6 +12,7 @@ import bookingRoutes from './routes/bookings.js';
 import messageRoutes from './routes/messages.js';
 import userRoutes from './routes/users.js';
 import reportRoutes from './routes/reports.js';
+import adminRoutes from './routes/admin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -37,6 +38,7 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/admin', adminRoutes);
 
 // En producción, el mismo servidor sirve el build de React (client/dist).
 // Así hay una sola URL y no hace falta configurar CORS.

@@ -6,8 +6,9 @@ import { db, initSchema } from './db.js';
 export function runSeed() {
 initSchema();
 
-// Wipe existing data (idempotent seed)
+// Wipe existing data (idempotent seed). El orden respeta las claves foráneas.
 db.exec(`
+  DELETE FROM reports;
   DELETE FROM reviews;
   DELETE FROM messages;
   DELETE FROM bookings;
@@ -45,18 +46,25 @@ const users = [
     avatar: 'https://i.pravatar.cc/150?img=3', city: 'Lima, Perú',
     verified: 1, rating: 5.0, reviews_count: 0,
     bio: 'Cuenta de demostración de Rentix.',
-    yape_number: '', yape_name: '',
+    yape_number: '', yape_name: '', is_admin: 0,
+  },
+  {
+    name: 'Soporte Rentix', email: 'admin@rentix.pe', password: 'admin1234',
+    avatar: 'https://i.pravatar.cc/150?img=15', city: 'Lima, Perú',
+    verified: 1, rating: 5.0, reviews_count: 0,
+    bio: 'Equipo de soporte y moderación de Rentix.',
+    yape_number: '', yape_name: '', is_admin: 1,
   },
 ];
 
 const insertUser = db.prepare(`
-  INSERT INTO users (name, email, password_hash, avatar, city, verified, rating, reviews_count, bio, yape_number, yape_name)
-  VALUES (@name, @email, @password_hash, @avatar, @city, @verified, @rating, @reviews_count, @bio, @yape_number, @yape_name)
+  INSERT INTO users (name, email, password_hash, avatar, city, verified, rating, reviews_count, bio, yape_number, yape_name, is_admin)
+  VALUES (@name, @email, @password_hash, @avatar, @city, @verified, @rating, @reviews_count, @bio, @yape_number, @yape_name, @is_admin)
 `);
 
 const userIds = {};
 for (const u of users) {
-  const info = insertUser.run({ ...u, password_hash: hash(u.password) });
+  const info = insertUser.run({ ...u, is_admin: u.is_admin || 0, password_hash: hash(u.password) });
   userIds[u.email] = info.lastInsertRowid;
 }
 
@@ -247,7 +255,8 @@ insertMsg.run({ from_id: userIds['demo@rentix.pe'], to_id: userIds['marcus@renti
 
 console.log('✅ Seed completado');
 console.log(`   ${users.length} usuarios, ${equipment.length} equipos`);
-console.log('   Cuenta demo: demo@rentix.pe / demo1234');
+console.log('   Cuenta demo:  demo@rentix.pe / demo1234');
+console.log('   Cuenta admin: admin@rentix.pe / admin1234');
 }
 
 // Ejecuta el seed solo cuando se corre directamente (npm run seed),

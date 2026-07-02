@@ -24,6 +24,7 @@ export function initSchema() {
       bio           TEXT DEFAULT '',
       yape_number   TEXT DEFAULT '',
       yape_name     TEXT DEFAULT '',
+      is_admin      INTEGER DEFAULT 0,
       created_at    TEXT DEFAULT (datetime('now'))
     );
 
@@ -122,4 +123,5 @@ function migrate() {
   add('bookings', 'payment_method', "TEXT DEFAULT 'yape'");
   add('bookings', 'payment_status', "TEXT DEFAULT 'pendiente_pago'");
   add('bookings', 'yape_operation', "TEXT DEFAULT ''");
+  add('users', 'is_admin', 'INTEGER DEFAULT 0');
 }
