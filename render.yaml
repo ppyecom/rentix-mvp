@@ -1,0 +1,14 @@
+# Blueprint de despliegue para Render (https://render.com) — plan gratuito.
+# Un solo servicio web que sirve el API Express + el frontend React.
+services:
+  - type: web
+    name: rentix
+    runtime: node
+    plan: free
+    buildCommand: npm run render-build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true

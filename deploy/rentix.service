@@ -1,0 +1,30 @@
+# Servicio systemd para Rentix — mantiene la app corriendo y la reinicia al reiniciar la VM.
+#
+# Instalar:
+#   sudo cp deploy/rentix.service /etc/systemd/system/rentix.service
+#   sudo nano /etc/systemd/system/rentix.service   # ajusta User, WorkingDirectory y JWT_SECRET
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now rentix
+#   sudo systemctl status rentix
+
+[Unit]
+Description=Rentix MVP (API + frontend)
+After=network.target
+
+[Service]
+Type=simple
+# Usuario del sistema que ejecuta la app (no uses root si puedes evitarlo)
+User=rentix
+# Ruta absoluta donde clonaste el repo
+WorkingDirectory=/opt/rentix
+# Ruta absoluta a node (verifícala con: which node)
+ExecStart=/usr/bin/node /opt/rentix/server/src/index.js
+Environment=NODE_ENV=production
+Environment=PORT=4000
+# CAMBIA esto por un secreto largo y aleatorio
+Environment=JWT_SECRET=cambia_esto_por_un_valor_largo_y_aleatorio
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
