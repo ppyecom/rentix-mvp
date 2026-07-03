@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 /**
@@ -35,15 +36,30 @@ export function LogoMark({ size = 32 }: { size?: number }) {
 }
 
 export function Logo({ size = 30, className = '' }: { size?: number; className?: string }) {
+  // Usa el logo PNG de la marca (client/public/logo.png) si existe;
+  // si no carga, cae automáticamente al logo SVG + wordmark.
+  const [usePng, setUsePng] = useState(true);
+
   return (
     <Link to="/" className={`flex items-center gap-2.5 ${className}`}>
-      <LogoMark size={size} />
-      <span
-        className="font-extrabold tracking-tight gradient-text"
-        style={{ fontSize: size * 0.72 }}
-      >
-        Rentix
-      </span>
+      {usePng ? (
+        <img
+          src="/logo.png"
+          alt="Rentix"
+          style={{ height: size * 1.25, width: 'auto' }}
+          onError={() => setUsePng(false)}
+        />
+      ) : (
+        <>
+          <LogoMark size={size} />
+          <span
+            className="font-extrabold tracking-tight gradient-text"
+            style={{ fontSize: size * 0.72 }}
+          >
+            Rentix
+          </span>
+        </>
+      )}
     </Link>
   );
 }
